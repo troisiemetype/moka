@@ -34,16 +34,11 @@
 
 #include <Wire.h>
 
-#define COLOR_MODE_8        0;
-#define COLOR_MODE_24       1;
-
-#define COLOR_MODE          COLOR_MODE_8;
-
 class Moka{
 public:
 
 	enum I2C_REG{
-		SET_ONE_LED  =0x00,					// SET_ONE_LED | LedNumber + 1/3 bytes
+		SET_ONE_LED = 0x00,					// SET_ONE_LED | LedNumber + 1/3 bytes
 		SET_GLOBAL_LED = 0x10,				// SET_GLOBAL + 1/3 bytes
 		SET_ALL_LED = 0x20,					// SET_ALL + 16/72 bytes
 		GET_BUTTONS = 0x40,					// GET_BUTTONS + 2 bytes from slave to master
@@ -61,28 +56,51 @@ public:
 		UPDATE_DISPLAY = 0xF5,				// UPDATE_DISPLAY
 
 		RESET = 0xFF,						// RESET
+
+		COLOR_MODE_8 = 0x00,
+		COLOR_MODE_24 = 0x01,
+	};
+
+	enum I2C_SPEED{
+		I2C_100 = 0,
+		I2C_400 = 1,
 	};
 
     void begin(uint8_t address, bool fast = false);
     void beginFast(uint8_t address);
 
     void setLed(uint8_t index);
+    void setLed(uint8_t col, uint8_t row);
     void clrLed(uint8_t index);
+    void clrLed(uint8_t col, uint8_t row);
     bool isLed(uint8_t index);
+    bool isLed(uint8_t col, uint8_t row);
 
     void setColor(uint8_t index, uint8_t color);
-    void setLedBrightness(uint8_t index, uint8_t brightness);
+    void setColor(uint8_t col, uint8_t row, uint8_t color);
+    void setBrightness(uint8_t index, uint8_t brightness);
+    void setBrightness(uint8_t col, uint8_t row, uint8_t brightness);
+
+    uint8_t getColor(uint8_t index);
+    uint8_t getColor(uint8_t col, uint8_t row);
+    uint8_t getBrightness(uint8_t index);
+    uint8_t getBrightness(uint8_t col, uint8_t row);
 
     void setGlobalColor(uint8_t color);
 
-    void update();
+    void updateLeds();
+    void updateDisplay();
 
     void readButtons();
 
     bool isPressed(uint8_t index);
-    bool wasPresed(uint8_t index);
+    bool isPressed(uint8_t col, uint8_t row);
+    bool wasPressed(uint8_t index);
+    bool wasPressed(uint8_t col, uint8_t row);
     bool isJustPressed(uint8_t index);
+    bool isJustPressed(uint8_t col, uint8_t row);
     bool isJustReleased(uint8_t index);
+    bool isJustReleased(uint8_t col, uint8_t row);
 
     void displayOn();
     void displayOff();
@@ -95,18 +113,93 @@ public:
     void reset();
 
 protected:
-    uint8_t _led[16][3];
+
+	inline uint8_t indexToCol(uint8_t index){return (index % 4);}
+	inline uint8_t indexToRow(uint8_t index){return (index / 4);}
+	inline uint8_t posToIndex(uint8_t col, uint8_t row){return (row * 4 + col);}
+
+    uint8_t _led[16];
 
     uint16_t _ledState;
 
     uint16_t _buttons, _prevButtons;
 
-
-
-
 private:
     uint8_t _i2cAddress;
-    bool _mustUpdate;
+    uint16_t _update;
+
+};
+
+class Mokas{
+public:
+
+    bool begin(uint8_t cols, uint8_t rows);
+    bool add(Moka *board);
+    bool beginAuto(uint8_t cols, uint8_t rows, bool fast = false);
+
+    void setLed(uint16_t index);
+    void setLed(uint8_t col, uint8_t row);
+    void clrLed(uint16_t index);
+    void clrLed(uint8_t col, uint8_t row);
+    bool isLed(uint16_t index);
+    bool isLed(uint8_t col, uint8_t row);
+
+    void setColor(uint16_t index, uint8_t color);
+    void setColor(uint8_t col, uint8_t row, uint8_t color);
+    void setBrightness(uint16_t index, uint8_t brightness);
+    void setBrightness(uint8_t col, uint8_t row, uint8_t brightness);
+
+    uint8_t getColor(uint16_t index);
+    uint8_t getColor(uint8_t col, uint8_t row);
+    uint8_t getBrightness(uint16_t index);
+    uint8_t getBrightness(uint8_t col, uint8_t row);
+
+    void setGlobalColor(uint8_t color);
+
+    void updateLeds();
+    void updateDisplay();
+
+    void readButtons();
+
+    bool isPressed(uint16_t index);
+    bool isPressed(uint8_t col, uint8_t row);
+    bool wasPressed(uint16_t index);
+    bool wasPressed(uint8_t col, uint8_t row);
+    bool isJustPressed(uint16_t index);
+    bool isJustPressed(uint8_t col, uint8_t row);
+    bool isJustReleased(uint16_t index);
+    bool isJustReleased(uint8_t col, uint8_t row);
+
+    void displayOn();
+    void displayOff();
+    void clrDisplay();
+
+    void setDebounce(uint8_t delay);
+
+    bool testInt();
+
+    void reset();
+
+protected:
+
+	uint8_t indexToCol(uint16_t index);
+	uint8_t indexToRow(uint16_t index);
+	uint16_t posToIndex(uint8_t col, uint8_t row);
+
+	uint8_t indexToBoardCol(uint16_t index);
+	uint8_t indexToBoardRow(uint16_t index);
+	uint8_t indexToBoard(uint16_t index);
+	uint8_t indexToBoardButton(uint16_t index);
+	uint8_t indexToBoardButtonCol(uint16_t index);
+	uint8_t indexToBoardButtonRow(uint16_t index);
+
+private:
+	Moka *_boards[32];
+
+	uint8_t _nbBoards, _nbCol, _nbRow;
+	uint8_t _addBoard;
+
+
 
 };
 
