@@ -36,7 +36,7 @@ void Moka::begin(uint8_t address, bool fast){
 	_i2cAddress = address;
 	Wire.begin();
 	if(fast){
-		Wire.setClock(400000L);
+		Wire.setClock(200000L);
 	}
 
 	displayOn();
@@ -56,7 +56,7 @@ void Moka::beginFast(uint8_t address){
 // LED settings: All this methods apply both to class tables and to Moka tile.
 // You will have to call update() for these settings to take effect.
 
-// Set a led to be lit. This doesn't change its color (nor it brightness)
+// Set a led to be lit. This doesn't change its color (nor its brightness)
 void Moka::setLed(uint8_t index){
 	if(index > 15) return;
 
@@ -81,13 +81,13 @@ void Moka::clrLed(uint8_t col, uint8_t row){
 }
 
 // Get the led state, i.e. lit or shut.
-bool Moka::isLed(uint8_t index){
+bool Moka::isLed(uint8_t index) const{
 	if(index > 15) return false;
 
 	return (_ledState & _BV(index));
 }
 
-bool Moka::isLed(uint8_t col, uint8_t row){
+bool Moka::isLed(uint8_t col, uint8_t row) const{
 	return isLed(posToIndex(col, row));
 }
 
@@ -118,21 +118,21 @@ void Moka::setBrightness(uint8_t col, uint8_t row, uint8_t brightness){
 }
 
 // Get the color set to this led.
-uint8_t Moka::getColor(uint8_t index){
+uint8_t Moka::getColor(uint8_t index) const{
 	return _led[index];
 }
 
-uint8_t Moka::getColor(uint8_t col, uint8_t row){
+uint8_t Moka::getColor(uint8_t col, uint8_t row) const{
 	return getColor(posToIndex(col, row));
 }
 
 // Get the brightness attached to this led.
 // This returns the two top bits of color, right aligned: 0b01xxxxxx will return 3 (and not 0b01000000)
-uint8_t Moka::getBrightness(uint8_t index){
+uint8_t Moka::getBrightness(uint8_t index) const{
 	return ((_led[index] & 0xC0) >> 6);
 }
 
-uint8_t Moka::getBrightness(uint8_t col, uint8_t row){
+uint8_t Moka::getBrightness(uint8_t col, uint8_t row) const{
 	return getBrightness(posToIndex(col, row));
 }
 
@@ -151,26 +151,34 @@ void Moka::setGlobalColor(uint8_t color){
 // Then, following the number of led to update, send the whole panel, or one led after the other.
 // This way communication is reduced to the minimum.
 void Moka::updateLeds(){
+//	Serial.println(_update, BIN);
 	if(_update == 0) return;
 
-	Wire.beginTransmission(_i2cAddress);
-	Wire.write(LED_STATE);
-	Wire.write(_ledState >> 8);
-	Wire.write(_ledState);
-	Wire.endTransmission(false);
+	uint8_t ok = 0;
+
+//	Serial.print("led state \t");
+//	Serial.println(ok);
 
 	uint8_t qty = 0;
 	for(uint8_t i = 0; i < 16; i++){
-		if(_update & _BV(i)) ++qty;
+		if((bool)(_update & _BV(i))){
+			++qty;
+//			Serial.print("update led\t");
+//			Serial.print(i);
+		}
 	}
 
+
+	// Arduino limits the send buffer to 32 bytes, so this needs to be fixed for the 24 color mode.
 	if(qty > 7){
 		Wire.beginTransmission(_i2cAddress);
 		Wire.write(SET_ALL_LED);
 		for(uint8_t i = 0; i < 16; i++){
 			Wire.write(_led[i]);
 		}
-		Wire.endTransmission();
+		ok = Wire.endTransmission();
+//		Serial.print("all leds \t");
+//		Serial.println(ok);
 
 	} else {
 		Wire.beginTransmission(_i2cAddress);
@@ -178,11 +186,25 @@ void Moka::updateLeds(){
 			if(_update & _BV(i)){
 				Wire.write(SET_ONE_LED | i);
 				Wire.write(_led[i]);
-				Wire.endTransmission(false);
+				ok = Wire.endTransmission(false);
+//				Serial.print("led ");
+//				Serial.print(i);
+//				Serial.print("\t");
+//				Serial.println(ok);
+
 			}
 		}
 		Wire.endTransmission();
 	}
+
+	Wire.beginTransmission(_i2cAddress);
+	Wire.write(LED_STATE);
+	Wire.write((_ledState >> 8));
+	Wire.write(_ledState & 0xFF);
+	Wire.endTransmission(false);
+
+
+//	Serial.println();
 
 	_update = 0;
 
@@ -191,7 +213,7 @@ void Moka::updateLeds(){
 // Update display with fresh led values.
 // This is separated from the led update, so all leds can be updated,
 // and once done the display are all updated at the same time.
-void Moka::updateDisplay(){
+void Moka::updateDisplay() const{
 	Wire.beginTransmission(_i2cAddress);
 	Wire.write(UPDATE_DISPLAY);
 	Wire.endTransmission();
@@ -202,58 +224,77 @@ void Moka::updateDisplay(){
 // You have to call readButtons() to get fresh values from the Moka tile.
 
 // Get a read of the buttons from the panel.
-void Moka::readButtons(){
+bool Moka::readButtons(){
 	Wire.beginTransmission(_i2cAddress);
 	Wire.write(GET_BUTTONS);
-	Wire.endTransmission();
+	uint8_t ok = Wire.endTransmission();
+//	Serial.print("buttons asked \t");
+//	Serial.println(ok);
 
-	Wire.requestFrom(_i2cAddress, (uint8_t)2);
-	_prevButtons = _buttons;
-	_buttons = (Wire.read() << 8);
-	_buttons |= Wire.read();
+	ok = Wire.requestFrom(_i2cAddress, 2);
+	
+	if(ok == 2){
+//		Serial.print("bytes returned: ");
+//		Serial.println(ok);
+		_prevButtons = _buttons;
+		_buttons = ((uint16_t)Wire.read() << 8);
+		_buttons |= Wire.read();
+//		Serial.print("buttons:\t");
+//		Serial.println(_buttons, BIN);
+
+	} else {
+//		Serial.println("com pb");
+		return false;
+	}
+
+	if(_prevButtons != _buttons){
+		return true;
+	} else {
+		return false;
+	}
 }
 
 // Return true if the given button is being pressed.
-bool Moka::isPressed(uint8_t index){
+bool Moka::isPressed(uint8_t index) const{
 	if(index > 15) return false;
 
 	return (_buttons & _BV(index));
 }
 
-bool Moka::isPressed(uint8_t col, uint8_t row){
+bool Moka::isPressed(uint8_t col, uint8_t row) const{
 	return isPressed(posToIndex(col, row));
 }
 
 // Return true if the button was pressed on last reading, but is not
-bool Moka::wasPressed(uint8_t index){
+bool Moka::wasPressed(uint8_t index) const{
 	if(index > 15) return false;
 
 	return (_prevButtons & _BV(index));
 }
 
-bool Moka::wasPressed(uint8_t col, uint8_t row){
+bool Moka::wasPressed(uint8_t col, uint8_t row) const{
 	return wasPressed(posToIndex(col, row));
 }
 
 // Return true if the button has been newly pressed.
-bool Moka::isJustPressed(uint8_t index){
+bool Moka::isJustPressed(uint8_t index) const{
 	if(index > 15) return false;
 
 	return (isPressed(index) && !wasPressed(index));
 }
 
-bool Moka::isJustPressed(uint8_t col, uint8_t row){
+bool Moka::isJustPressed(uint8_t col, uint8_t row) const{
 	return isJustPressed(posToIndex(col, row));
 }
 
 // Return true if the button has been newly released.
-bool Moka::isJustReleased(uint8_t index){
+bool Moka::isJustReleased(uint8_t index) const{
 	if(index > 15) return false;
 
 	return (!isPressed(index) && wasPressed(index));
 }
 
-bool Moka::isJustReleased(uint8_t col, uint8_t row){
+bool Moka::isJustReleased(uint8_t col, uint8_t row) const{
 	return isJustReleased(posToIndex(col, row));
 }
 
@@ -283,7 +324,7 @@ void Moka::clrDisplay(){
 }
 
 // Set the debounce delay for buttons.
-void Moka::setDebounce(uint8_t delay){
+void Moka::setDebounce(uint8_t delay) const{
 	Wire.beginTransmission(_i2cAddress);
 	Wire.write(DEBOUNCE_DELAY);
 	Wire.write(delay);
@@ -301,13 +342,18 @@ bool Moka::testInt(){
 }
 
 // Reset the board. has to be seen if it's possible. Seems not.
-void Moka::reset(){
+void Moka::reset() const{
 	Wire.beginTransmission(_i2cAddress);
 	Wire.write(RESET);
 	Wire.endTransmission();
 }
 
-// Mokas class: managing several board together
+
+
+/////////////////////////////////////////////////
+// Mokas class: managing several board together//
+/////////////////////////////////////////////////
+
 
 // Create a big board out of several tiles. Cols and rows
 bool Mokas::begin(uint8_t cols, uint8_t rows){
@@ -315,6 +361,8 @@ bool Mokas::begin(uint8_t cols, uint8_t rows){
 	_nbRow = rows;
 	if(rows == 0) return true;
 	if(cols == 0) return true;
+	_sizeX = cols * 4;
+	_sizeY = rows * 4;
 	_nbBoards = cols * rows;
 	_addBoard = 0;
 	if(_nbBoards > 32) return true;
@@ -332,7 +380,7 @@ bool Mokas::add(Moka *board){
 
 // Creates a matrix of cols columns by rows column, and automaticly creates boards that compose it.
 // It uses the default address, so if you use it to have to set the physical addresses on the boards
-// crescent for left to right, and up to down. The first board has the address 0, i.e. no jumper set.
+// crescent for left to right, and up to down. The first board has the address 10, i.e. no jumper set.
 bool Mokas::beginAuto(uint8_t cols, uint8_t rows, bool fast){
 	bool status = begin(cols, rows);
 	if(status) return status;
@@ -362,11 +410,11 @@ void Mokas::clrLed(uint8_t col, uint8_t row){
 	clrLed(posToIndex(col, row));
 }
 
-bool Mokas::isLed(uint16_t index){
+bool Mokas::isLed(uint16_t index) const{
 	return _boards[indexToBoard(index)]->isLed(indexToBoardButton(index));
 }
 
-bool Mokas::isLed(uint8_t col, uint8_t row){
+bool Mokas::isLed(uint8_t col, uint8_t row) const{
 	return isLed(posToIndex(col, row));
 }
 
@@ -387,19 +435,19 @@ void Mokas::setBrightness(uint8_t col, uint8_t row, uint8_t brightness){
 }
 
 
-uint8_t Mokas::getColor(uint16_t index){
+uint8_t Mokas::getColor(uint16_t index) const{
 	return _boards[indexToBoard(index)]->getColor(indexToBoardButton(index));
 }
 
-uint8_t Mokas::getColor(uint8_t col, uint8_t row){
+uint8_t Mokas::getColor(uint8_t col, uint8_t row) const{
 	return getColor(posToIndex(col, row));
 }
 
-uint8_t Mokas::getBrightness(uint16_t index){
+uint8_t Mokas::getBrightness(uint16_t index) const{
 	return _boards[indexToBoard(index)]->getBrightness(indexToBoardButton(index));
 }
 
-uint8_t Mokas::getBrightness(uint8_t col, uint8_t row){
+uint8_t Mokas::getBrightness(uint8_t col, uint8_t row) const{
 	return getBrightness(posToIndex(col, row));
 }
 
@@ -417,7 +465,7 @@ void Mokas::updateLeds(){
 	}
 }
 
-void Mokas::updateDisplay(){
+void Mokas::updateDisplay() const{
 	Wire.beginTransmission(0);
 	Wire.write(Moka::UPDATE_DISPLAY);
 	Wire.endTransmission();
@@ -431,35 +479,35 @@ void Mokas::readButtons(){
 }
 
 
-bool Mokas::isPressed(uint16_t index){
+bool Mokas::isPressed(uint16_t index) const{
 	return _boards[indexToBoard(index)]->isPressed(indexToBoardButton(index));
 }
 
-bool Mokas::isPressed(uint8_t col, uint8_t row){
+bool Mokas::isPressed(uint8_t col, uint8_t row) const{
 	return isPressed(posToIndex(col, row));
 }
 
-bool Mokas::wasPressed(uint16_t index){
+bool Mokas::wasPressed(uint16_t index) const{
 	return _boards[indexToBoard(index)]->wasPressed(indexToBoardButton(index));
 }
 
-bool Mokas::wasPressed(uint8_t col, uint8_t row){
+bool Mokas::wasPressed(uint8_t col, uint8_t row) const{
 	return wasPressed(posToIndex(col, row));
 }
 
-bool Mokas::isJustPressed(uint16_t index){
+bool Mokas::isJustPressed(uint16_t index) const{
 	return _boards[indexToBoard(index)]->isJustPressed(indexToBoardButton(index));
 }
 
-bool Mokas::isJustPressed(uint8_t col, uint8_t row){
+bool Mokas::isJustPressed(uint8_t col, uint8_t row) const{
 	return isJustPressed(posToIndex(col, row));
 }
 
-bool Mokas::isJustReleased(uint16_t index){
+bool Mokas::isJustReleased(uint16_t index) const{
 	return _boards[indexToBoard(index)]->isJustReleased(indexToBoardButton(index));
 }
 
-bool Mokas::isJustReleased(uint8_t col, uint8_t row){
+bool Mokas::isJustReleased(uint8_t col, uint8_t row) const{
 	return isJustReleased(posToIndex(col, row));
 }
 
@@ -481,7 +529,7 @@ void Mokas::clrDisplay(){
 	}
 }
 
-void Mokas::setDebounce(uint8_t delay){
+void Mokas::setDebounce(uint8_t delay) const{
 	for(uint8_t i = 0; i < _nbBoards; i++){
 		_boards[i]->setDebounce(delay);
 	}
@@ -491,41 +539,41 @@ bool Mokas::testInt(){
 	return true;
 }
 
-void Mokas::reset(){
+void Mokas::reset() const{
 
 }
 
 
 // convenience functions to convert index to position and position to index.
-uint8_t Mokas::indexToCol(uint16_t index){
+uint8_t Mokas::indexToCol(uint16_t index) const{
 	return (index % _nbCol);
 }
 
-uint8_t Mokas::indexToRow(uint16_t index){
+uint8_t Mokas::indexToRow(uint16_t index) const{
 	return (index / _nbCol);
 }
 
-uint16_t Mokas::posToIndex(uint8_t col, uint8_t row){
+uint16_t Mokas::posToIndex(uint8_t col, uint8_t row) const{
 	return (uint16_t)(col + row * 4);
 }
 
 
-uint8_t Mokas::indexToBoardCol(uint16_t index){
+uint8_t Mokas::indexToBoardCol(uint16_t index) const{
 	return (indexToCol(index) / 4);
 }
 
-uint8_t Mokas::indexToBoardRow(uint16_t index){
+uint8_t Mokas::indexToBoardRow(uint16_t index) const{
 	return (indexToRow(index) / 4);
 }
 
-uint8_t Mokas::indexToBoard(uint16_t index){
+uint8_t Mokas::indexToBoard(uint16_t index) const{
 	return (indexToBoardCol(index) + indexToBoardRow(index) * _nbCol);
 }
 
-uint8_t Mokas::indexToBoardButtonCol(uint16_t index){
+uint8_t Mokas::indexToBoardButtonCol(uint16_t index) const{
 	return (indexToCol(index) - 4 * indexToBoardCol(index));
 }
 
-uint8_t Mokas::indexToBoardButtonRow(uint16_t index){
+uint8_t Mokas::indexToBoardButtonRow(uint16_t index) const{
 	return (indexToRow(index) - 4 * indexToBoardRow(index));
 }

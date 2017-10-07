@@ -73,52 +73,58 @@ public:
     void setLed(uint8_t col, uint8_t row);
     void clrLed(uint8_t index);
     void clrLed(uint8_t col, uint8_t row);
-    bool isLed(uint8_t index);
-    bool isLed(uint8_t col, uint8_t row);
+    bool isLed(uint8_t index) const;
+    bool isLed(uint8_t col, uint8_t row) const;
 
     void setColor(uint8_t index, uint8_t color);
     void setColor(uint8_t col, uint8_t row, uint8_t color);
     void setBrightness(uint8_t index, uint8_t brightness);
     void setBrightness(uint8_t col, uint8_t row, uint8_t brightness);
 
-    uint8_t getColor(uint8_t index);
-    uint8_t getColor(uint8_t col, uint8_t row);
-    uint8_t getBrightness(uint8_t index);
-    uint8_t getBrightness(uint8_t col, uint8_t row);
+    uint8_t getColor(uint8_t index) const;
+    uint8_t getColor(uint8_t col, uint8_t row) const;
+    uint8_t getBrightness(uint8_t index) const;
+    uint8_t getBrightness(uint8_t col, uint8_t row) const;
 
     void setGlobalColor(uint8_t color);
 
     void updateLeds();
-    void updateDisplay();
+    void updateDisplay() const;
 
-    void readButtons();
+    bool readButtons();
 
-    bool isPressed(uint8_t index);
-    bool isPressed(uint8_t col, uint8_t row);
-    bool wasPressed(uint8_t index);
-    bool wasPressed(uint8_t col, uint8_t row);
-    bool isJustPressed(uint8_t index);
-    bool isJustPressed(uint8_t col, uint8_t row);
-    bool isJustReleased(uint8_t index);
-    bool isJustReleased(uint8_t col, uint8_t row);
+    bool isPressed(uint8_t index) const;
+    bool isPressed(uint8_t col, uint8_t row) const;
+    bool wasPressed(uint8_t index) const;
+    bool wasPressed(uint8_t col, uint8_t row) const;
+    bool isJustPressed(uint8_t index) const;
+    bool isJustPressed(uint8_t col, uint8_t row) const;
+    bool isJustReleased(uint8_t index) const;
+    bool isJustReleased(uint8_t col, uint8_t row) const;
 
     void displayOn();
     void displayOff();
     void clrDisplay();
 
-    void setDebounce(uint8_t delay);
+    void setDebounce(uint8_t delay) const;
 
     bool testInt();
 
-    void reset();
+    void reset() const;
+
+    inline uint8_t getSizeX() const {return _sizeX;}
+    inline uint8_t getSizeY() const {return _sizeY;}
 
 protected:
 
-	inline uint8_t indexToCol(uint8_t index){return (index % 4);}
-	inline uint8_t indexToRow(uint8_t index){return (index / 4);}
-	inline uint8_t posToIndex(uint8_t col, uint8_t row){return (row * 4 + col);}
+	inline uint8_t indexToCol(uint8_t index) const {return (index % 4);}
+	inline uint8_t indexToRow(uint8_t index) const {return (index / 4);}
+	inline uint8_t posToIndex(uint8_t col, uint8_t row) const {return (row * 4 + col);}
 
     uint8_t _led[16];
+
+    const uint8_t _sizeX = 4;
+    const uint8_t _sizeY = 4;
 
     uint16_t _ledState;
 
@@ -141,60 +147,67 @@ public:
     void setLed(uint8_t col, uint8_t row);
     void clrLed(uint16_t index);
     void clrLed(uint8_t col, uint8_t row);
-    bool isLed(uint16_t index);
-    bool isLed(uint8_t col, uint8_t row);
+    bool isLed(uint16_t index) const;
+    bool isLed(uint8_t col, uint8_t row) const;
 
     void setColor(uint16_t index, uint8_t color);
     void setColor(uint8_t col, uint8_t row, uint8_t color);
     void setBrightness(uint16_t index, uint8_t brightness);
     void setBrightness(uint8_t col, uint8_t row, uint8_t brightness);
 
-    uint8_t getColor(uint16_t index);
-    uint8_t getColor(uint8_t col, uint8_t row);
-    uint8_t getBrightness(uint16_t index);
-    uint8_t getBrightness(uint8_t col, uint8_t row);
+    uint8_t getColor(uint16_t index) const;
+    uint8_t getColor(uint8_t col, uint8_t row) const;
+    uint8_t getBrightness(uint16_t index) const;
+    uint8_t getBrightness(uint8_t col, uint8_t row) const;
 
     void setGlobalColor(uint8_t color);
 
     void updateLeds();
-    void updateDisplay();
+    void updateDisplay() const;
 
     void readButtons();
 
-    bool isPressed(uint16_t index);
-    bool isPressed(uint8_t col, uint8_t row);
-    bool wasPressed(uint16_t index);
-    bool wasPressed(uint8_t col, uint8_t row);
-    bool isJustPressed(uint16_t index);
-    bool isJustPressed(uint8_t col, uint8_t row);
-    bool isJustReleased(uint16_t index);
-    bool isJustReleased(uint8_t col, uint8_t row);
+    bool isPressed(uint16_t index) const;
+    bool isPressed(uint8_t col, uint8_t row) const;
+    bool wasPressed(uint16_t index) const;
+    bool wasPressed(uint8_t col, uint8_t row) const;
+    bool isJustPressed(uint16_t index) const;
+    bool isJustPressed(uint8_t col, uint8_t row) const;
+    bool isJustReleased(uint16_t index) const;
+    bool isJustReleased(uint8_t col, uint8_t row) const;
 
     void displayOn();
     void displayOff();
     void clrDisplay();
 
-    void setDebounce(uint8_t delay);
+    void setDebounce(uint8_t delay) const;
 
     bool testInt();
 
-    void reset();
+    void reset() const;
+
+    inline uint8_t getSizeX() const {return _sizeX;}
+    inline uint8_t getSizeY() const {return _sizeY;}
+
 
 protected:
 
-	uint8_t indexToCol(uint16_t index);
-	uint8_t indexToRow(uint16_t index);
-	uint16_t posToIndex(uint8_t col, uint8_t row);
+	uint8_t indexToCol(uint16_t index) const;
+	uint8_t indexToRow(uint16_t index) const;
+	uint16_t posToIndex(uint8_t col, uint8_t row) const;
 
-	uint8_t indexToBoardCol(uint16_t index);
-	uint8_t indexToBoardRow(uint16_t index);
-	uint8_t indexToBoard(uint16_t index);
-	uint8_t indexToBoardButton(uint16_t index);
-	uint8_t indexToBoardButtonCol(uint16_t index);
-	uint8_t indexToBoardButtonRow(uint16_t index);
+	uint8_t indexToBoardCol(uint16_t index) const;
+	uint8_t indexToBoardRow(uint16_t index) const;
+	uint8_t indexToBoard(uint16_t index) const;
+	uint8_t indexToBoardButton(uint16_t index) const;
+	uint8_t indexToBoardButtonCol(uint16_t index) const;
+	uint8_t indexToBoardButtonRow(uint16_t index) const;
 
 private:
 	Moka *_boards[32];
+
+    uint8_t _sizeX;
+    uint8_t _sizeY;
 
 	uint8_t _nbBoards, _nbCol, _nbRow;
 	uint8_t _addBoard;
