@@ -11,10 +11,10 @@
 SLIPEncodedUSBSerial SLIPSerial(SerialUSB);
 #else
 #include <SLIPEncodedSerial.h>
-SLIPEncodedSerial SLIPSerial(Serial1);
+SLIPEncodedSerial SLIPSerial(Serial);
 #endif
 
-Moka board;
+Mokas board;
 
 uint8_t color = 0b00110000;
 
@@ -36,17 +36,21 @@ uint8_t nowSetting = SET_IDLE;
 
 uint8_t ctr = 0;
 
+bool update = false;
+
 
 void setup(){
 
-	board.begin(10);
+	board.beginAuto(2, 2);
 
 	board.setGlobalColor(color);
 
 	board.setDebounce(5);
 
+	uint16_t maxSize = board.getSizeX() * board.getSizeY();
+
 	for(uint8_t j = 0; j < 2; ++j){
-		for(uint8_t i = 0; i < 16; ++i){
+		for(uint8_t i = 0; i < maxSize; ++i){
 			board.setLed(i);
 		}
 
@@ -54,7 +58,7 @@ void setup(){
 		board.updateDisplay();
 		delay(50);
 
-		for(uint8_t i = 0; i < 16; ++i){
+		for(uint8_t i = 0; i < maxSize; ++i){
 			board.clrLed(i);
 		}
 
@@ -111,8 +115,11 @@ void loop(){
 		
 	}
 
-	board.updateLeds();
-	board.updateDisplay();
+	if(update){
+		board.updateLeds();
+		board.updateDisplay();
+		update = false;
+	}
 }
 
 void inComming(){
@@ -148,6 +155,7 @@ void led(OSCMessage &msg, int offset){
 //	board.setLed(ctr++);
 //	board.updateLeds();
 //	board.updateDisplay();
+	update = true;
 	msg.route("/set", ledSet, offset);
 	msg.route("/int", ledInt, offset);
 	msg.route("/rgb", ledRGB, offset);
@@ -417,9 +425,12 @@ void setKeyMode(OSCMessage &msg){
 }
 
 void startSequence(OSCMessage &msg){
-	for(int8_t i = -4; i < 20; ++i){
 
-		for(int8_t j = 0; j < 16; ++j){
+	uint16_t maxSize = board.getSizeX() * board.getSizeY();
+
+	for(int8_t i = -4; i < (int16_t)(maxSize + 4); ++i){
+
+		for(int8_t j = 0; j < maxSize; ++j){
 
 			int8_t delta = abs(i - j);
 

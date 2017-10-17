@@ -32,15 +32,19 @@
 
 // Set the new tile: create its address and the I2C bus speed.
 // Speed default to 100KHz
+// Boards run at 8MHz, and it seems to be not enough for the I2C to run faster than 100MHz.
 void Moka::begin(uint8_t address, bool fast){
+	// Default address is 10 (0x30). Moka tiles can be addressed all at once with broadcast address 0.
 	_i2cAddress = address;
 	Wire.begin();
 	if(fast){
 		Wire.setClock(200000L);
 	}
 
+	// Turn the display on.
 	displayOn();
 	
+	// Set the board to 1 byte color mode.
 	Wire.beginTransmission(_i2cAddress);
 	Wire.write(COLOR_MODE | COLOR_MODE_8);
 	Wire.endTransmission();
@@ -64,6 +68,11 @@ void Moka::setLed(uint8_t index){
 	_update |= _BV(index);
 }
 
+// All led function (set, clr, brightness and color as well) just change local state
+// (i.e. your sketch running on Arduino).
+// It's needed to call updateLed() to send new values to board(s) when you need it,
+// and updateDisplay() to effectively update the display.
+// Same for led addressed by col and row.
 void Moka::setLed(uint8_t col, uint8_t row){
 	setLed(posToIndex(col, row));
 }
@@ -76,6 +85,7 @@ void Moka::clrLed(uint8_t index){
 	_update |= _BV(index);
 }
 
+// Same for led addressed by col and row.
 void Moka::clrLed(uint8_t col, uint8_t row){
 	clrLed(posToIndex(col, row));
 }
@@ -87,6 +97,7 @@ bool Moka::isLed(uint8_t index) const{
 	return (_ledState & _BV(index));
 }
 
+// Same for led addressed by col and row.
 bool Moka::isLed(uint8_t col, uint8_t row) const{
 	return isLed(posToIndex(col, row));
 }
@@ -99,6 +110,7 @@ void Moka::setColor(uint8_t index, uint8_t color){
 	_update |= _BV(index);
 }
 
+// Same for led addressed by col and row.
 void Moka::setColor(uint8_t col, uint8_t row, uint8_t color){
 	setColor(posToIndex(col, row), color);
 }
@@ -113,6 +125,7 @@ void Moka::setBrightness(uint8_t index, uint8_t brightness){
 	_led[index] |= (brightness << 6);
 }
 
+// Same for led addressed by col and row.
 void Moka::setBrightness(uint8_t col, uint8_t row, uint8_t brightness){
 	setBrightness(posToIndex(col, row), brightness);
 }
@@ -122,6 +135,7 @@ uint8_t Moka::getColor(uint8_t index) const{
 	return _led[index];
 }
 
+// Same for led addressed by col and row.
 uint8_t Moka::getColor(uint8_t col, uint8_t row) const{
 	return getColor(posToIndex(col, row));
 }
@@ -132,6 +146,7 @@ uint8_t Moka::getBrightness(uint8_t index) const{
 	return ((_led[index] & 0xC0) >> 6);
 }
 
+// Same for led addressed by col and row.
 uint8_t Moka::getBrightness(uint8_t col, uint8_t row) const{
 	return getBrightness(posToIndex(col, row));
 }
@@ -147,6 +162,7 @@ void Moka::setGlobalColor(uint8_t color){
 }
 
 // Update the leds, i.e. send the new led values to the display.
+// This must be called every time you want to update led values on board.
 // First send the led state (lit or shut)
 // Then, following the number of led to update, send the whole panel, or one led after the other.
 // This way communication is reduced to the minimum.
@@ -159,6 +175,10 @@ void Moka::updateLeds(){
 //	Serial.print("led state \t");
 //	Serial.println(ok);
 
+	// See how much led have to be updated, and so choose the fastest method to send command
+	// Via I2C.
+	// Each stream uses one address byte, plus one command byte, plus values.
+	// It therefor can be faster to update a few leds, or the whole pannel at once.
 	uint8_t qty = 0;
 	for(uint8_t i = 0; i < 16; i++){
 		if((bool)(_update & _BV(i))){
@@ -170,7 +190,9 @@ void Moka::updateLeds(){
 
 
 	// Arduino limits the send buffer to 32 bytes, so this needs to be fixed for the 24 color mode.
+	// Maybe the buffer size can be leverage to more bytes, but it will let less memory for user sketch.
 	if(qty > 7){
+		// Here we update all leds with one command.
 		Wire.beginTransmission(_i2cAddress);
 		Wire.write(SET_ALL_LED);
 		for(uint8_t i = 0; i < 16; i++){
@@ -181,6 +203,7 @@ void Moka::updateLeds(){
 //		Serial.println(ok);
 
 	} else {
+		// Here we update leds one after another, each one with a new command.
 		Wire.beginTransmission(_i2cAddress);
 		for(uint8_t i = 0; i < 16; i++){
 			if(_update & _BV(i)){
@@ -197,6 +220,7 @@ void Moka::updateLeds(){
 		Wire.endTransmission();
 	}
 
+	// update the led states.
 	Wire.beginTransmission(_i2cAddress);
 	Wire.write(LED_STATE);
 	Wire.write((_ledState >> 8));
@@ -222,8 +246,11 @@ void Moka::updateDisplay() const{
 
 // Buttons methods. These return the values stored in class table.
 // You have to call readButtons() to get fresh values from the Moka tile.
+// Moka tile updates button read on a regular basis and include debounce,
+// so this is just getting a fresh value from a register. 
 
 // Get a read of the buttons from the panel.
+// This method returns true when the nis a change, so you can use it as a conditionnal test.
 bool Moka::readButtons(){
 	Wire.beginTransmission(_i2cAddress);
 	Wire.write(GET_BUTTONS);
@@ -261,6 +288,7 @@ bool Moka::isPressed(uint8_t index) const{
 	return (_buttons & _BV(index));
 }
 
+// Same for led addressed by col and row.
 bool Moka::isPressed(uint8_t col, uint8_t row) const{
 	return isPressed(posToIndex(col, row));
 }
@@ -272,6 +300,7 @@ bool Moka::wasPressed(uint8_t index) const{
 	return (_prevButtons & _BV(index));
 }
 
+// Same for led addressed by col and row.
 bool Moka::wasPressed(uint8_t col, uint8_t row) const{
 	return wasPressed(posToIndex(col, row));
 }
@@ -283,6 +312,7 @@ bool Moka::isJustPressed(uint8_t index) const{
 	return (isPressed(index) && !wasPressed(index));
 }
 
+// Same for led addressed by col and row.
 bool Moka::isJustPressed(uint8_t col, uint8_t row) const{
 	return isJustPressed(posToIndex(col, row));
 }
@@ -294,6 +324,7 @@ bool Moka::isJustReleased(uint8_t index) const{
 	return (!isPressed(index) && wasPressed(index));
 }
 
+// Same for led addressed by col and row.
 bool Moka::isJustReleased(uint8_t col, uint8_t row) const{
 	return isJustReleased(posToIndex(col, row));
 }
@@ -324,6 +355,7 @@ void Moka::clrDisplay(){
 }
 
 // Set the debounce delay for buttons.
+// Delay is expressed in milliseconds.
 void Moka::setDebounce(uint8_t delay) const{
 	Wire.beginTransmission(_i2cAddress);
 	Wire.write(DEBOUNCE_DELAY);
@@ -370,7 +402,10 @@ bool Mokas::begin(uint8_t cols, uint8_t rows){
 	return false;
 }
 
-// Add a tile to the board. Will return true until we have reach the number of board defined with begin()
+// Add a tile to the board.
+// Will return false until we have reach the number of board defined with begin()
+// When using this method you can use any address you want for any board you want,
+// But you still have to declare boards from left to right and up to down.
 bool Mokas::add(Moka *board){
 	if(_addBoard >= _nbBoards) return true;
 	_boards[_addBoard] = board;
@@ -378,7 +413,7 @@ bool Mokas::add(Moka *board){
 	return false;
 }
 
-// Creates a matrix of cols columns by rows column, and automaticly creates boards that compose it.
+// Creates a matrix of /cols/ columns by /rows/ rows, and automaticly creates boards that compose it.
 // It uses the default address, so if you use it to have to set the physical addresses on the boards
 // crescent for left to right, and up to down. The first board has the address 10, i.e. no jumper set.
 bool Mokas::beginAuto(uint8_t cols, uint8_t rows, bool fast){
@@ -393,6 +428,11 @@ bool Mokas::beginAuto(uint8_t cols, uint8_t rows, bool fast){
 
 	return false;
 }
+// All public methods works exactly the same for Mokas class ( one or several boards)
+// and Moka class (only one board). See first part of this file for information on how they work.
+// All these methods essentially call the one-tile method on each board that need it.
+// There is one exception to this: methods that update the whole board (with several tiles)
+// use the broadcast address 0 to address all tiles at once.
 
 void Mokas::setLed(uint16_t index){
 	_boards[indexToBoard(index)]->setLed(indexToBoardButton(index));
@@ -465,6 +505,7 @@ void Mokas::updateLeds(){
 	}
 }
 
+// Update display with broadcast address 0 to all tiles.
 void Mokas::updateDisplay() const{
 	Wire.beginTransmission(0);
 	Wire.write(Moka::UPDATE_DISPLAY);
@@ -472,10 +513,13 @@ void Mokas::updateDisplay() const{
 }
 
 
-void Mokas::readButtons(){
+bool Mokas::readButtons(){
+	bool newRead = false;
 	for(uint8_t i = 0; i < _nbBoards; i++){
-		_boards[i]->readButtons();
+		newRead |= _boards[i]->readButtons();
 	}
+
+	return newRead;
 }
 
 
@@ -545,35 +589,55 @@ void Mokas::reset() const{
 
 
 // convenience functions to convert index to position and position to index.
+// They are internally used by methods of the class to run conversions between pos and index
+// To boards, boards number, col, row and index of one board, et caetera.
+// Contrarly to Moka ones, they are not static, as they need a board map to compute their values.
+
+// Convert an index to a column number.
 uint8_t Mokas::indexToCol(uint16_t index) const{
-	return (index % _nbCol);
+	return (index % _sizeX);
 }
 
+// Convert an index to a row number.
 uint8_t Mokas::indexToRow(uint16_t index) const{
-	return (index / _nbCol);
+	return (index / _sizeX);
 }
 
+// Convert a pos (row, col) to an index.
 uint16_t Mokas::posToIndex(uint8_t col, uint8_t row) const{
-	return (uint16_t)(col + row * 4);
+	return (uint16_t)(col + row * _sizeX);
 }
 
 
+// Convert an index to a board column (i.e. index of board in a row).
 uint8_t Mokas::indexToBoardCol(uint16_t index) const{
 	return (indexToCol(index) / 4);
 }
 
+// Convert an index to a board row (i.e. index of board in a column).
 uint8_t Mokas::indexToBoardRow(uint16_t index) const{
 	return (indexToRow(index) / 4);
 }
 
+// Convert an index to a board index (i.e. the boad number, running from 0 at top left to N at bottom right).
+// e.g. index 33 on a 2x2 board (8x8 buttons) will give 2, as it's the second button on the #2 (third) tile.
 uint8_t Mokas::indexToBoard(uint16_t index) const{
 	return (indexToBoardCol(index) + indexToBoardRow(index) * _nbCol);
 }
 
+// Convert a global index to local index on the appropriate tile.
+// e.g. index 8 on a 2x2 board (8x8 buttons) will give 4 (that is the corresponding index on board #1).
+uint8_t Mokas::indexToBoardButton(uint16_t index) const{
+	return (Moka::posToIndex(indexToBoardButtonCol(index), indexToBoardButtonRow(index)));
+}
+
+// Convert a global index to local column number on the appropriate tile.
+// e.g. index 13 on a 2x2 board (8x8 buttons) will give 1 (that is the correspondig column on board #2).
 uint8_t Mokas::indexToBoardButtonCol(uint16_t index) const{
 	return (indexToCol(index) - 4 * indexToBoardCol(index));
 }
 
+// Convert a global index to local row number on the appropriate tile.
 uint8_t Mokas::indexToBoardButtonRow(uint16_t index) const{
 	return (indexToRow(index) - 4 * indexToBoardRow(index));
 }

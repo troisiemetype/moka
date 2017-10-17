@@ -115,12 +115,13 @@ public:
     inline uint8_t getSizeX() const {return _sizeX;}
     inline uint8_t getSizeY() const {return _sizeY;}
 
+    // These functions can be called when needed to convert a pos to index, or index to pos.
+    // They are static so you don't need to use them on an instance of the class.
+	static inline uint8_t indexToCol(uint8_t index) {return (index % 4);}
+	static inline uint8_t indexToRow(uint8_t index) {return (index / 4);}
+	static inline uint8_t posToIndex(uint8_t col, uint8_t row) {return (row * 4 + col);}
+
 protected:
-
-	inline uint8_t indexToCol(uint8_t index) const {return (index % 4);}
-	inline uint8_t indexToRow(uint8_t index) const {return (index / 4);}
-	inline uint8_t posToIndex(uint8_t col, uint8_t row) const {return (row * 4 + col);}
-
     uint8_t _led[16];
 
     const uint8_t _sizeX = 4;
@@ -165,7 +166,7 @@ public:
     void updateLeds();
     void updateDisplay() const;
 
-    void readButtons();
+    bool readButtons();
 
     bool isPressed(uint16_t index) const;
     bool isPressed(uint8_t col, uint8_t row) const;
@@ -189,9 +190,6 @@ public:
     inline uint8_t getSizeX() const {return _sizeX;}
     inline uint8_t getSizeY() const {return _sizeY;}
 
-
-protected:
-
 	uint8_t indexToCol(uint16_t index) const;
 	uint8_t indexToRow(uint16_t index) const;
 	uint16_t posToIndex(uint8_t col, uint8_t row) const;
@@ -211,9 +209,6 @@ private:
 
 	uint8_t _nbBoards, _nbCol, _nbRow;
 	uint8_t _addBoard;
-
-
-
 };
 
 #endif
