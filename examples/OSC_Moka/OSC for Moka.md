@@ -45,10 +45,10 @@ OSC for Moka
 // From Moka
 
 	/key x y s
-		/key 0 0 1			// Key x0 y0 is pushed
+		/key 1 0 0			// Key x0 y0 is pushed
 
 	/key i s
-		/key 12 0			// Key at index 12 is not pushed
+		/key 0 12			// Key at index 12 is not pushed
 
 	/size x y
 		/size 12 8 			// Board is 12 columns x 8 rows

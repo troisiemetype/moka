@@ -16,7 +16,7 @@ SLIPEncodedSerial SLIPSerial(Serial);
 
 Mokas board;
 
-uint8_t color = 0b00110000;
+uint8_t color = 0b01110000;
 
 enum KEY_MODE{
 	KEY_BY_POS = 0,
@@ -41,7 +41,7 @@ bool update = false;
 
 void setup(){
 
-	board.beginAuto(2, 2);
+	board.beginAuto(1, 1);
 
 	board.setGlobalColor(color);
 
@@ -91,9 +91,9 @@ void loop(){
 			for(uint8_t x = 0; x < maxX; ++x){
 				for(uint8_t y = 0; y < maxY; ++y){
 					if(board.isJustPressed(x, y)){
-						bundleOut.add("/key").add((int32_t)x).add((int32_t)y).add(true);
+						bundleOut.add("/key/pos").add(true).add((int32_t)x).add((int32_t)y);
 					} else if(board.isJustReleased(x, y)){
-						bundleOut.add("/key").add((int32_t)x).add((int32_t)y).add(false);
+						bundleOut.add("/key/pos").add(false).add((int32_t)x).add((int32_t)y);
 					}
 				}
 			}
@@ -101,9 +101,9 @@ void loop(){
 	 		uint8_t maxSize = board.getSizeX() * board.getSizeY();
 			for(uint8_t i = 0; i < maxSize; ++i){
 				if(board.isJustPressed(i)){
-					bundleOut.add("/key").add((int32_t)i).add(true);
+					bundleOut.add("/key/index").add(true).add((int32_t)i);
 				} else if(board.isJustReleased(i)){
-					bundleOut.add("/key").add((int32_t)i).add(false);
+					bundleOut.add("/key/index").add(false).add((int32_t)i);
 				}
 			}
 		}
